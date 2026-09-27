@@ -1,0 +1,41 @@
+name: seoul-edu-news-bot
+
+on:
+  schedule:
+    # GitHub Actions cron 은 UTC 기준. KST = UTC+9
+    - cron: "0 23 * * *"   # 08:00 KST (아침)
+    - cron: "0 9  * * *"   # 18:00 KST (저녁)
+  workflow_dispatch:        # 수동 실행 버튼
+
+permissions:
+  contents: write           # sent.json 커밋용
+
+concurrency:
+  group: news-bot
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - run: pip install -r requirements.txt
+
+      - name: Run bot
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID:   ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python main.py
+
+      - name: Commit sent.json
+        run: |
+          git config user.name  "github-actions"
+          git config user.email "actions@github.com"
+          git add sent.json
+          git diff --staged --quiet || git commit -m "update sent history [skip ci]"
+          git push
