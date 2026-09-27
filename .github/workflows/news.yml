@@ -2,13 +2,19 @@ name: seoul-edu-news-bot
 
 on:
   schedule:
-    # GitHub Actions cron 은 UTC 기준. KST = UTC+9
-    - cron: "0 23 * * *"   # 08:00 KST (아침)
-    - cron: "0 9  * * *"   # 18:00 KST (저녁)
-  workflow_dispatch:        # 수동 실행 버튼
+    - cron: "0 23 * * *"   # 08:00 KST
+    - cron: "0 9  * * *"   # 18:00 KST
+  workflow_dispatch:
+    inputs:
+      date_from:
+        description: "시작일 YYYY-MM-DD (비우면 오늘)"
+        required: false
+      date_to:
+        description: "종료일 YYYY-MM-DD (비우면 시작일과 동일)"
+        required: false
 
 permissions:
-  contents: write           # sent.json 커밋용
+  contents: write
 
 concurrency:
   group: news-bot
@@ -19,18 +25,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-
       - run: pip install -r requirements.txt
 
       - name: Run bot
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID:   ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: python main.py
+        run: |
+          ARGS=""
+          if [ -n "${{ github.event.inputs.date_from }}" ]; then
+            ARGS="--from ${{ github.event.inputs.date_from }} --to ${{ github.event.inputs.date_to || github.event.inputs.date_from }}"
+          fi
+          python main.py $ARGS
 
       - name: Commit sent.json
         run: |
